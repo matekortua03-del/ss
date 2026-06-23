@@ -1,38 +1,45 @@
-<!doctype html><html><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Neurology Quiz V2</title>
-<style>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neurology Quiz V3</title><style>
 body{font-family:Arial;max-width:1000px;margin:auto;padding:20px}
-.ans{display:block;width:100%;text-align:left;padding:12px;margin:8px 0;border:1px solid #ccc}
+button{padding:10px;margin:4px}.ans{display:block;width:100%;text-align:left;margin:8px 0;padding:12px}
 .correct{background:#b8f5b8}.wrong{background:#ffb6b6}
 </style></head><body>
-<h2>Neurology Quiz V2</h2>
-<button onclick="start(false)">Sequential</button>
-<button onclick="start(true)">Random</button>
+<h2>Neurology Quiz V3</h2>
+<button onclick="startSeq()">Sequential</button>
+<button onclick="startRandom()">Random</button>
 <button onclick="redoMistakes()">Mistakes</button>
+<button onclick="resumeQuiz()">Resume</button>
+<button onclick="resetProgress()">Reset</button>
 <div id="info"></div><h3 id="q"></h3><div id="a"></div>
 <script src="questions.js"></script>
 <script>
-let pool=[],idx=0,mist=[];
+let seqPool=[],pool=[],idx=0,mist=[],mode='seq';
 function sh(x){return [...x].sort(()=>Math.random()-0.5);}
 function prep(arr){return arr.map(v=>{let a=sh(v.answers);return{q:v.q,answers:a,c:a.findIndex(z=>z.correct)}});}
-function beep(f){let c=new(AudioContext||webkitAudioContext)();let o=c.createOscillator();o.frequency=f;o.connect(c.destination);o.start();setTimeout(()=>{o.stop();c.close()},120);}
-function start(r){pool=prep(r?sh(QUESTIONS):QUESTIONS);idx=0;show();}
+function save(){localStorage.setItem('quizState',JSON.stringify({idx,mode,mist}));}
+function load(){try{return JSON.parse(localStorage.getItem('quizState')||'{}')}catch(e){return {}}}
+function beep(f){let c=new(AudioContext||webkitAudioContext)();let o=c.createOscillator();o.frequency.value=f;o.connect(c.destination);o.start();setTimeout(()=>{o.stop();c.close()},120);}
+function startSeq(){mode='seq'; if(!seqPool.length) seqPool=prep(QUESTIONS); pool=seqPool; show(); save();}
+function startRandom(){mode='random'; pool=prep(sh(QUESTIONS)); idx=0; show(); save();}
+function redoMistakes(){mode='mist'; pool=[...mist]; idx=0; show(); save();}
+function resumeQuiz(){let s=load(); if(s.mode==='seq'){pool=seqPool.length?seqPool:prep(QUESTIONS); idx=s.idx||0; mode='seq'; mist=s.mist||[]; show();}}
+function resetProgress(){localStorage.removeItem('quizState'); idx=0; mist=[]; seqPool=[]; startSeq();}
 function show(){
+ if(!pool.length){if(!seqPool.length) startSeq(); return;}
  if(idx>=pool.length){q.innerText='Finished';a.innerHTML='';return;}
- info.innerText=(idx+1)+'/'+pool.length+' | mistakes:'+mist.length;
- q.innerText=pool[idx].q;
- a.innerHTML='';
+ info.innerText=(idx+1)+'/'+pool.length+' | mistakes:'+mist.length+' | mode:'+mode;
+ q.innerText=pool[idx].q; a.innerHTML='';
  pool[idx].answers.forEach((x,i)=>{
-  let b=document.createElement('button');
-  b.className='ans'; b.textContent=x.text;
+  let b=document.createElement('button'); b.className='ans'; b.textContent=x.text;
   b.onclick=()=>{
-   if(i===pool[idx].c){b.classList.add('correct');beep(900);setTimeout(()=>{idx++;show()},700);}
-   else{b.classList.add('wrong');beep(250); if(!mist.includes(pool[idx]))mist.push(pool[idx]);}
+   if(i===pool[idx].c){b.classList.add('correct'); beep(900);
+      if(mode==='seq'){save();}
+      setTimeout(()=>{idx++; save(); show();},700);}
+   else{b.classList.add('wrong'); beep(250); if(!mist.includes(pool[idx])) mist.push(pool[idx]); save();}
   };
   a.appendChild(b);
  });
 }
-function redoMistakes(){pool=[...mist];idx=0;show();}
-start(false);
+startSeq();
+let s=load(); if(typeof s.idx==='number'){idx=s.idx; mist=s.mist||[]; show();}
 </script></body></html>
